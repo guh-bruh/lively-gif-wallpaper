@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lively Animated Wallpaper</title>
+  <style>
+    :root {
+      --glass: rgba(19, 19, 24, 0.34);
+      --panel: rgba(20, 20, 25, 0.62);
+      --border: rgba(255,255,255,0.18);
+      --text: #f5f7ff;
+      --muted: rgba(245,247,255,0.75);
+      --accent: #9fe8ff;
+      --shadow: rgba(0,0,0,0.4);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      background: #000;
+      color: var(--text);
+    }
+
+    .bg {
+      position: fixed;
+      inset: 0;
+      background-position: center center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      filter: saturate(1.15) contrast(1.08) brightness(0.9);
+      transform: scale(1.05);
+      z-index: 0;
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.10) 68%, rgba(0,0,0,0.45) 100%),
+        linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.18));
+    }
+
+    .corner {
+      position: fixed;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 130px;
+      max-width: 240px;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.28));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.30);
+      backdrop-filter: blur(7px);
+      -webkit-backdrop-filter: blur(7px);
+      user-select: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .corner.hidden { display: none !important; }
+
+    .corner .label {
+      font-size: 10px;
+      line-height: 1;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      opacity: 0.9;
+    }
+
+    .corner .time {
+      font-size: clamp(24px, 2vw, 36px);
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: white;
+      text-shadow: 0 2px 16px rgba(0,0,0,0.6);
+    }
+
+    .corner .extra {
+      font-size: 12px;
+      line-height: 1.25;
+      color: rgba(255,255,255,0.86);
+      font-weight: 600;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+    }
+
+    .corner .mini {
+      font-size: 11px;
+      line-height: 1.35;
+      color: rgba(255,255,255,0.82);
+      font-weight: 500;
+    }
+
+    .top-left { top: 20px; left: 20px; align-items: flex-start; }
+    .top-right { top: 20px; right: 20px; align-items: flex-end; text-align: right; }
+    .bottom-left { bottom: 20px; left: 20px; align-items: flex-start; }
+    .bottom-right { bottom: 20px; right: 20px; align-items: flex-end; text-align: right; }
+
+    .settings-wrap {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    .settings-btn {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: linear-gradient(180deg, rgba(20,20,25,0.8), rgba(20,20,25,0.5));
+      color: var(--text);
+      font-size: 22px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .settings-btn:hover {
+      transform: translateY(-1px) scale(1.02);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.42);
+    }
+
+    .settings-btn.rotating { animation: spin 0.5s ease; }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(90deg); }
+    }
+
+    .settings-panel {
+      width: min(260px, calc(100vw - 30px));
+      background: linear-gradient(180deg, rgba(16,16,18,0.72), rgba(26,26,30,0.82));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 14px 10px;
+      box-shadow: 0 16px 34px rgba(0,0,0,0.35);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: none;
+    }
+
+    .settings-panel.open {
+      display: block;
+      animation: slideUp 0.18s ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-title {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 10px;
+      font-weight: 700;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 2px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.92);
+      font-size: 13px;
+    }
+
+    .row:last-child { border-bottom: none; }
+
+    .row label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .row select {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .small-note {
+      font-size: 11px;
+      color: rgba(255,255,255,0.68);
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 640px) {
+      .corner { min-width: 110px; padding: 8px 10px; }
+      .corner .time { font-size: 22px; }
+      .settings-panel { width: min(220px, calc(100vw - 20px)); }
+    }
+  </style>
+</head>
+<body>
+  <div id="bg" class="bg" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <div id="localCorner" class="corner top-left">
+    <div class="label">Local</div>
+    <div id="localTime" class="time">--:--</div>
+    <div id="localDate" class="extra">Loading…</div>
+  </div>
+
+  <div id="utcCorner" class="corner top-right">
+    <div class="label">UTC</div>
+    <div id="utcTime" class="time">--:--</div>
+    <div id="utcExtra" class="extra">--</div>
+  </div>
+
+  <div id="dayCorner" class="corner bottom-left">
+    <div class="label">Today</div>
+    <div id="dayText" class="extra">Loading…</div>
+    <div id="dayWeek" class="mini">--</div>
+  </div>
+
+  <div id="batteryCorner" class="corner bottom-right">
+    <div class="label">Battery</div>
+    <div id="batteryText" class="time">--</div>
+    <div id="batteryStatus" class="mini">--</div>
+  </div>
+
+  <div class="settings-wrap">
+    <div id="settingsPanel" class="settings-panel" aria-live="polite">
+      <div class="panel-title">Wallpaper Settings</div>
+
+      <div class="row"><label><input id="toggleLocal" type="checkbox" checked /> Local time</label></div>
+      <div class="row"><label><input id="toggleUTC" type="checkbox" checked /> UTC time</label></div>
+      <div class="row"><label><input id="toggleDate" type="checkbox" checked /> Date</label></div>
+      <div class="row"><label><input id="toggleSeconds" type="checkbox" checked /> Seconds</label></div>
+      <div class="row"><label><input id="toggleBattery" type="checkbox" checked /> Battery</label></div>
+      <div class="row"><label><input id="toggleTimezone" type="checkbox" checked /> Timezone</label></div>
+
+      <div class="row">
+        <label for="formatSelect">Time format</label>
+        <select id="formatSelect">
+          <option value="12">12-hour</option>
+          <option value="24">24-hour</option>
+        </select>
+      </div>
+
+      <div class="small-note">Tip: Use the gear icon again to hide this panel.</div>
+    </div>
+
+    <button id="settingsBtn" class="settings-btn" title="Wallpaper settings" aria-label="Open settings">⚙</button>
+  </div>
+
+  <script>
+    const defaults = { local: true, utc: true, date: true, seconds: true, battery: true, timezone: true, format: '12' };
+    const storageKey = 'livelyGifWallpaperSettingsV1';
+    const state = loadState();
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        return { ...defaults, ...saved };
+      } catch {
+        return { ...defaults };
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(storageKey, JSON.stringify(state));
+    }
+
+    const bg = document.getElementById('bg');
+    bg.style.backgroundImage = 'url("bg.gif")';
+
+    const localCorner = document.getElementById('localCorner');
+    const utcCorner = document.getElementById('utcCorner');
+    const dayCorner = document.getElementById('dayCorner');
+    const batteryCorner = document.getElementById('batteryCorner');
+
+    const localTimeEl = document.getElementById('localTime');
+    const localDateEl = document.getElementById('localDate');
+    const utcTimeEl = document.getElementById('utcTime');
+    const utcExtraEl = document.getElementById('utcExtra');
+    const dayTextEl = document.getElementById('dayText');
+    const dayWeekEl = document.getElementById('dayWeek');
+    const batteryTextEl = document.getElementById('batteryText');
+    const batteryStatusEl = document.getElementById('batteryStatus');
+
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const elements = {
+      local: document.getElementById('toggleLocal'),
+      utc: document.getElementById('toggleUTC'),
+      date: document.getElementById('toggleDate'),
+      seconds: document.getElementById('toggleSeconds'),
+      battery: document.getElementById('toggleBattery'),
+      timezone: document.getElementById('toggleTimezone'),
+      format: document.getElementById('formatSelect')
+    };
+
+    function formatHour(hour, is24) {
+      if (is24) return String(hour).padStart(2, '0');
+      return String(hour % 12 === 0 ? 12 : hour % 12);
+    }
+
+    function formatAmPm(hour) {
+      return hour >= 12 ? 'PM' : 'AM';
+    }
+
+    function render() {
+      const now = new Date();
+
+      localCorner.classList.toggle('hidden', !state.local);
+      const localHour = formatHour(now.getHours(), state.format === '24');
+      const localMinute = String(now.getMinutes()).padStart(2, '0');
+      const localSecond = String(now.getSeconds()).padStart(2, '0');
+      const localSuffix = state.format === '24' ? '' : ` ${formatAmPm(now.getHours())}`;
+      localTimeEl.textContent = `${localHour}:${localMinute}${state.seconds ? `:${localSecond}` : ''}${localSuffix}`;
+      localDateEl.textContent = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+      utcCorner.classList.toggle('hidden', !state.utc);
+      const utcHour = formatHour(now.getUTCHours(), state.format === '24');
+      const utcMinute = String(now.getUTCMinutes()).padStart(2, '0');
+      const utcSecond = String(now.getUTCSeconds()).padStart(2, '0');
+      const utcSuffix = state.format === '24' ? '' : ` ${formatAmPm(now.getUTCHours())}`;
+      utcTimeEl.textContent = `${utcHour}:${utcMinute}${state.seconds ? `:${utcSecond}` : ''}${utcSuffix}`;
+
+      const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+      const offsetMin = -now.getTimezoneOffset();
+      const sign = offsetMin >= 0 ? '+' : '-';
+      const abs = Math.abs(offsetMin);
+      const offsetHours = String(Math.floor(abs / 60)).padStart(2, '0');
+      const offsetMinutes = String(abs % 60).padStart(2, '0');
+      const tzValue = `UTC${sign}${offsetHours}:${offsetMinutes}`;
+      utcExtraEl.textContent = state.timezone ? `${tzName} • ${tzValue}` : tzValue;
+
+      dayCorner.classList.toggle('hidden', !(state.date || state.local || state.utc));
+      dayTextEl.textContent = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      dayWeekEl.textContent = now.toLocaleDateString(undefined, { weekday: 'long' });
+
+      batteryCorner.classList.toggle('hidden', !state.battery);
+      updateBatteryDisplay();
+    }
+
+    function updateBatteryDisplay() {
+      if (!navigator.getBattery) {
+        batteryTextEl.textContent = 'N/A';
+        batteryStatusEl.textContent = 'No battery API';
+        return;
+      }
+
+      navigator.getBattery().then((battery) => {
+        const pct = Math.round(battery.level * 100);
+        const charging = battery.charging ? 'Charging' : 'Battery';
+        batteryTextEl.textContent = `${pct}%`;
+        batteryStatusEl.textContent = charging;
+      }).catch(() => {
+        batteryTextEl.textContent = 'N/A';
+        batteryStatusEl.textContent = 'Unavailable';
+      });
+    }
+
+    function attachBindings() {
+      Object.entries(elements).forEach(([key, el]) => {
+        if (el.type === 'checkbox') {
+          el.checked = !!state[key];
+          el.addEventListener('change', () => {
+            state[key] = el.checked;
+            saveState();
+            render();
+          });
+        }
+        if (el.tagName === 'SELECT') {
+          el.value = state.format;
+          el.addEventListener('change', () => {
+            state.format = el.value;
+            saveState();
+            render();
+          });
+        }
+      });
+    }
+
+    settingsBtn.addEventListener('click', () => {
+      settingsPanel.classList.toggle('open');
+      settingsBtn.classList.add('rotating');
+      setTimeout(() => settingsBtn.classList.remove('rotating'), 220);
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!settingsPanel.contains(event.target) && !settingsBtn.contains(event.target)) {
+        settingsPanel.classList.remove('open');
+      }
+    });
+
+    function applyInitialControls() {
+      elements.local.checked = state.local;
+      elements.utc.checked = state.utc;
+      elements.date.checked = state.date;
+      elements.seconds.checked = state.seconds;
+      elements.battery.checked = state.battery;
+      elements.timezone.checked = state.timezone;
+      elements.format.value = state.format;
+    }
+
+    applyInitialControls();
+    attachBindings();
+    render();
+    setInterval(render, 1000);
+  </script>
+</body>
+</html>
